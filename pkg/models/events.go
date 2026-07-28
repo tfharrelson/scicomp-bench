@@ -24,8 +24,8 @@ type DFTEventPayload struct {
 	InputFile string `json:"input_file"`
 }
 
-func (e *DFTEventPayload) isEventPayload() {}
+func (e DFTEventPayload) isEventPayload() {}
 
 type DummyEventPayload struct{}
 
-func (e *DummyEventPayload) isEventPayload() {}
+func (e DummyEventPayload) isEventPayload() {}
