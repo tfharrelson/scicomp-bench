@@ -7,4 +7,5 @@ type DB interface {
 	CreateUser(string, string, string) error
 	GetUserPasswordHash(string) (string, error)
 	PublishEvent(*models.Event) error
+	PersistSimulation(models.SimulationSnapshot) error
 }

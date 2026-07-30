@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/tfharrelson/scicomp-bench/pkg/db"
 	"github.com/tfharrelson/scicomp-bench/pkg/events"
@@ -31,7 +33,7 @@ type QEAtomicSpecies struct {
 
 type QESpecies struct {
 	Mass float64 `xml:"mass"`
-	Name string  `xml:"name"`
+	Name string  `xml:"name,attr"`
 }
 
 type QEAtomicStructure struct {
@@ -40,7 +42,13 @@ type QEAtomicStructure struct {
 }
 
 type QEAtomicPositions struct {
-	Atom []string `xml:"atom"`
+	Atom []QEAtom `xml:"atom"`
+	Name string   `xml:"name,attr"`
+}
+
+type QEAtom struct {
+	Position string `xml:",chardata"`
+	Name     string `xml:"name,attr"`
 }
 
 type QECell struct {
@@ -139,5 +147,128 @@ func (t *QuantumEspressoTool) Run(event models.Event) error {
 		return err
 	}
 
+	// convert the qe response to the domain model and persist it
+	speciesMap := make(map[string]float64)
+	for _, atomicSpecies := range qeResponse.Output.AtomicSpecies {
+		fmt.Printf("species = %+v\n", atomicSpecies)
+		speciesMap[atomicSpecies.Species.Name] = atomicSpecies.Species.Mass
+	}
+	var atoms []models.Atom
+	for _, atom := range qeResponse.Output.AtomicStructure.AtomicPositions.Atom {
+		vec, err := parseQEVector(atom.Position)
+		if err != nil {
+			return err
+		}
+		mass, ok := speciesMap[atom.Name]
+		if !ok {
+			return fmt.Errorf("no mass found for atom %s, map = %+v", atom.Name, speciesMap)
+		}
+		atoms = append(atoms, models.Atom{
+			Type: atom.Name,
+			Mass: mass,
+			Position: models.Vector{
+				X: vec[0],
+				Y: vec[1],
+				Z: vec[2],
+			},
+		})
+	}
+
+	a, err := parseQEVector(qeResponse.Output.AtomicStructure.Cell.A1)
+	if err != nil {
+		return err
+	}
+	b, err := parseQEVector(qeResponse.Output.AtomicStructure.Cell.A2)
+	if err != nil {
+		return err
+	}
+	c, err := parseQEVector(qeResponse.Output.AtomicStructure.Cell.A3)
+	if err != nil {
+		return err
+	}
+	cell := models.UnitCell{
+		A: models.Vector{X: a[0], Y: a[1], Z: a[2]},
+		B: models.Vector{X: b[0], Y: b[1], Z: b[2]},
+		C: models.Vector{X: c[0], Y: c[1], Z: c[2]},
+	}
+
+	forces, err := parseQEForces(qeResponse.Output.Forces)
+	if err != nil {
+		return err
+	}
+
+	simulation := models.SimulationSnapshot{
+		ID:       event.ID,
+		Energy:   qeResponse.Output.TotalEnergy.Energy,
+		Atoms:    atoms,
+		Forces:   forces,
+		UnitCell: cell,
+	}
+
+	if err := t.db.PersistSimulation(simulation); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func parseQEVector(vecString string) ([]float64, error) {
+	vecStrings := strings.Fields(vecString)
+	if len(vecStrings) != 3 {
+		return nil, fmt.Errorf(
+			"invalid number of positional dimensions in vector %d, expected 3, in %s",
+			len(vecStrings),
+			vecString,
+		)
+	}
+	x, err := strconv.ParseFloat(vecStrings[0], 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse x position: %v", vecString)
+	}
+	y, err := strconv.ParseFloat(vecStrings[1], 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse y position: %v", vecString)
+	}
+	z, err := strconv.ParseFloat(vecStrings[2], 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse z position: %v", vecString)
+	}
+	return []float64{x, y, z}, nil
+}
+
+func parseQEForces(qeForces QEMatrix) ([]models.Vector, error) {
+	valueStrings := strings.Fields(qeForces.Values)
+	if len(valueStrings)%3 != 0 {
+		return nil, fmt.Errorf("invalid number of elements in force values")
+	}
+	values := make([]float64, len(valueStrings))
+	for i, value := range valueStrings {
+		value, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse force value: %v", value)
+		}
+		values[i] = value
+	}
+
+	// initialize the forces
+	var forces []models.Vector
+	for i := 0; i < len(values)/3; i++ {
+		forces = append(forces, models.Vector{})
+	}
+
+	switch qeForces.Order {
+	case "C": // row major order
+		for i := 0; i < len(values)/3; i++ {
+			forces[i].X = values[i*3]
+			forces[i].Y = values[i*3+1]
+			forces[i].Z = values[i*3+2]
+		}
+	default: // column major order
+		for i := 0; i < len(values)/3; i++ {
+			forces[i].X = values[i]
+			forces[i].Y = values[i+len(values)/3]
+			forces[i].Z = values[i+2*len(values)/3]
+		}
+	}
+	return forces, nil
 }

@@ -8,14 +8,16 @@ import (
 )
 
 type InMemoryDB struct {
-	data   map[string]string
-	events map[string]any
+	data        map[string]string
+	events      map[string]any
+	simulations map[string]models.SimulationSnapshot
 }
 
 func NewInMemoryDB() *InMemoryDB {
 	table := make(map[string]string)
 	events := make(map[string]any)
-	return &InMemoryDB{data: table, events: events}
+	simulations := make(map[string]models.SimulationSnapshot)
+	return &InMemoryDB{data: table, events: events, simulations: simulations}
 }
 
 func (d *InMemoryDB) CreateUser(username, email, password string) error {
@@ -37,5 +39,10 @@ func (d *InMemoryDB) GetUserPasswordHash(username string) (string, error) {
 
 func (d *InMemoryDB) PublishEvent(event *models.Event) error {
 	d.events[event.ID.String()] = event
+	return nil
+}
+
+func (d *InMemoryDB) PersistSimulation(snapshot models.SimulationSnapshot) error {
+	d.simulations[snapshot.ID.String()] = snapshot
 	return nil
 }
