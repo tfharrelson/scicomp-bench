@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SciComp Bench</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+
+    <!-- Login Form -->
+    <form action="/login" method="POST" class="card">
+      <h1>Login</h1>
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input name="username" class="form-input" placeholder="Enter username" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input name="password" class="form-input" type="password" placeholder="Enter password" required>
+      </div>
+      <button class="btn" type="submit">Login</button>
+    </form>
+
+    <!-- Signup Form -->
+    <form action="/signup" method="POST" class="card">
+      <h1>Sign Up</h1>
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input name="username" class="form-input" placeholder="Choose username" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input name="email" class="form-input" type="email" placeholder="you@example.com" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input name="password" class="form-input" type="password" placeholder="Choose password" required>
+      </div>
+      <button class="btn" type="submit">Sign Up</button>
+    </form>
+
+    <!-- DFT Job Form -->
+    <form action="/submit" method="POST" class="card">
+      <h1>Submit DFT Job</h1>
+      <div class="form-group">
+        <label class="form-label">Job Name</label>
+        <input name="job_name" class="form-input" placeholder="my-calculation" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Job Type</label>
+        <select name="type" class="form-select">
+          <option value="dft">DFT (Density Functional Theory)</option>
+          <option value="dummy">Dummy (Test)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Input File</label>
+        <textarea name="input_file" class="form-textarea" rows="12"
+          placeholder="&amp;CONTROL
+    calculation = 'scf'
+/
+&amp;SYSTEM
+    ibrav = 1
+/
+&amp;ELECTRONS
+/">
+        </textarea>
+      </div>
+      <button class="btn" type="submit">Submit Job</button>
+    </form>
+
+  </div>
+</body>
+</html>
