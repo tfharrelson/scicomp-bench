@@ -1,5 +1,7 @@
 package main
 
+//go:generate templ generate
+
 import (
 	"log"
 	"net/http"

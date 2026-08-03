@@ -39,11 +39,6 @@ body {
   padding: 20px;
 }
 
-/* Utility Classes */
-.hidden {
-  display: none !important;
-}
-
 /* Card Component */
 .card {
   background: var(--surface);

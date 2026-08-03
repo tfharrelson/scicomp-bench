@@ -1,15 +1,12 @@
 package app
 
 import (
-	"bytes"
-	"fmt"
-	"io"
 	"net/http"
-	"net/http/httptest"
-	"path/filepath"
 	"strings"
+	"time"
 
-	"github.com/tfharrelson/scicomp-bench/pkg/api"
+	"github.com/starfederation/datastar-go/datastar"
+	"github.com/tfharrelson/scicomp-bench/app/templates"
 	"github.com/tfharrelson/scicomp-bench/pkg/db"
 	"github.com/tfharrelson/scicomp-bench/pkg/events"
 	"github.com/tfharrelson/scicomp-bench/pkg/models"
@@ -18,42 +15,61 @@ import (
 var (
 	localDB       db.DB
 	localEventBus events.Bus
+	apiStore      Api
 )
 
-func InitHandlers(d db.DB, bus events.Bus) {
+func InitHandlers(d db.DB, bus events.Bus, api Api) {
 	localDB = d
 	localEventBus = bus
+	apiStore = api
+}
+
+func createCookie(token string) *http.Cookie {
+	return &http.Cookie{
+		Name:     "token",
+		Value:    token,
+		Expires:  time.Now().Add(15 * time.Minute),
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		Path:     "/",
+	}
 }
 
 func Index(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, filepath.Join("app", "resources", "index.html"))
+	if err := templates.IndexPage().Render(r.Context(), w); err != nil {
+		http.Error(w, "Couldn't render index page", http.StatusInternalServerError)
+		return
+	}
 }
 
 func Login(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 
+	sse := datastar.NewSSE(w, r)
 	if username == "" || password == "" {
-		http.Error(w, "Username and password required", http.StatusBadRequest)
-		return
-	}
-
-	body := fmt.Sprintf(`{"username":"%s","password":"%s"}`, username, password)
-	apiReq := httptest.NewRequest("POST", "/api/v1/login", bytes.NewBufferString(body))
-	apiReq.Header.Set("Content-Type", "application/json")
-
-	rec := httptest.NewRecorder()
-	api.Login(rec, apiReq, localDB)
-
-	if rec.Code == http.StatusOK {
-		for _, cookie := range rec.Result().Cookies() {
-			http.SetCookie(w, cookie)
+		if err := sse.PatchElementTempl(templates.LoginError("Username and password required")); err != nil {
+			http.Error(w, "Couldn't patch login error message", http.StatusInternalServerError)
+			return
 		}
-		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 
-	http.Error(w, "Login failed", rec.Code)
+	request := models.LoginRequest{Username: username, Password: password}
+	resp, err := apiStore.Login(request)
+	if err != nil {
+		if err := sse.PatchElementTempl(templates.LoginError(err.Message())); err != nil {
+			http.Error(w, "Couldn't patch login error message", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	http.SetCookie(w, createCookie(resp.Token))
+	if err := sse.PatchElementTempl(templates.LoginSuccess("Login successful!")); err != nil {
+		http.Error(w, "Couldn't patch login toast", http.StatusInternalServerError)
+		return
+	}
 }
 
 func Signup(w http.ResponseWriter, r *http.Request) {
@@ -61,49 +77,71 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	password := r.FormValue("password")
 
+	sse := datastar.NewSSE(w, r)
 	if username == "" || email == "" || password == "" {
-		http.Error(w, "All fields required", http.StatusBadRequest)
+		if err := sse.PatchElementTempl(templates.SignUpError("All fields required")); err != nil {
+			http.Error(w, "Couldn't patch signup error message", http.StatusInternalServerError)
+			return
+		}
 		return
 	}
 
-	body := fmt.Sprintf(`{"username":"%s","email":"%s","password":"%s"}`, username, email, password)
-	apiReq := httptest.NewRequest("POST", "/api/v1/signup", bytes.NewBufferString(body))
-	apiReq.Header.Set("Content-Type", "application/json")
-
-	rec := httptest.NewRecorder()
-	api.SignUp(rec, apiReq, localDB)
-
-	if rec.Code == http.StatusOK {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
+	request := models.SignUpRequest{
+		Username: username,
+		Email:    email,
+		Password: password,
 	}
 
-	msg, _ := io.ReadAll(rec.Body)
-	http.Error(w, string(msg), rec.Code)
+	resp, err := apiStore.SignUp(request)
+	if err != nil {
+		if err := sse.PatchElementTempl(templates.SignUpError(err.Message())); err != nil {
+			http.Error(w, "Couldn't patch signup error message", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+	if err := sse.PatchElementTempl(templates.SignUpToast("Account created! Automatically signing you in.")); err != nil {
+		http.Error(w, "Couldn't patch sign up toast", http.StatusInternalServerError)
+		return
+	}
+	http.SetCookie(w, createCookie(resp.Token))
+	if err := sse.PatchElementTempl(templates.LoginSuccess("Login successful!")); err != nil {
+		http.Error(w, "Couldn't patch login toast", http.StatusInternalServerError)
+		return
+	}
 }
 
 func SubmitJob(w http.ResponseWriter, r *http.Request) {
+	// TODO: check auth
+	sse := datastar.NewSSE(w, r)
+
 	jobName := strings.TrimSpace(r.FormValue("job_name"))
 	jobType := models.JobType(r.FormValue("type"))
 	inputFile := r.FormValue("input_file")
 
 	if jobName == "" {
-		http.Error(w, "Job name required", http.StatusBadRequest)
+		if err := sse.PatchElementTempl(templates.SubmitJobError("Job name required")); err != nil {
+			http.Error(w, "Couldn't patch job error", http.StatusInternalServerError)
+			return
+		}
 		return
 	}
 
-	body := fmt.Sprintf(`{"type":"%s","job_name":"%s","input_file":"%s"}`, jobType, jobName, inputFile)
-	apiReq := httptest.NewRequest("POST", "/api/v1/submit", bytes.NewBufferString(body))
-	apiReq.Header.Set("Content-Type", "application/json")
-
-	rec := httptest.NewRecorder()
-	api.SubmitJob(rec, apiReq, localDB, localEventBus)
-
-	if rec.Code == http.StatusOK {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
+	request := models.SubmitJobRequest{
+		Type:      jobType,
+		JobName:   jobName,
+		InputFile: inputFile,
 	}
 
-	msg, _ := io.ReadAll(rec.Body)
-	http.Error(w, string(msg), rec.Code)
+	err := apiStore.SubmitJob(request)
+	if err != nil {
+		if err := sse.PatchElementTempl(templates.SubmitJobError(err.Message())); err != nil {
+			http.Error(w, "Couldn't patch job error", http.StatusInternalServerError)
+			return
+		}
+	}
+	if err := sse.PatchElementTempl(templates.SubmitJobToast("Job submitted successfully.")); err != nil {
+		http.Error(w, "Couldn't patch job submitted toast", http.StatusInternalServerError)
+		return
+	}
 }

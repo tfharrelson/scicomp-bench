@@ -1,0 +1,26 @@
+package templates
+
+templ LoginForm() {
+    <form data-on:submit="@post('/login')" class="card">
+        <h1>Login</h1>
+        <div id="login-error" class="status status-error"></div>
+        <div id="login-success" class="status status-success"></div>
+        <div class="form-group">
+            <label class="form-label">Username</label>
+            <input name="username" class="form-input" placeholder="Enter username" required>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Password</label>
+            <input name="password" class="form-input" type="password" placeholder="Enter password" required>
+        </div>
+        <button class="btn" type="submit">Login</button>
+    </form>
+}
+
+templ LoginSuccess(message string) {
+  <div id="login-success" class="status status-success">{ message }</div>
+}
+
+templ LoginError(message string) {
+  <div id="login-error" class="status status-error">{ message }</div>
+}

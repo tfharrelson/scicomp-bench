@@ -3,15 +3,11 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"os"
-	"time"
 
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
+	"github.com/tfharrelson/scicomp-bench/pkg/api/actions"
 	"github.com/tfharrelson/scicomp-bench/pkg/db"
 	"github.com/tfharrelson/scicomp-bench/pkg/events"
 	"github.com/tfharrelson/scicomp-bench/pkg/models"
-	"golang.org/x/crypto/bcrypt"
 )
 
 func Health(w http.ResponseWriter, r *http.Request) {
@@ -35,20 +31,19 @@ func SignUp(w http.ResponseWriter, r *http.Request, db db.DB) {
 		return
 	}
 
-	// hash the password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
+	resp, err := actions.SignUp(db, request)
 	if err != nil {
+		println(err.Error())
 		http.Error(w, `{"message": "Internal Server Error"}`, http.StatusInternalServerError)
+		return
 	}
 
-	// persist it to db
-	err = db.CreateUser(request.Username, request.Email, string(hashedPassword))
-	if err != nil {
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		http.Error(w, `{"message": "Internal Server Error"}`, http.StatusInternalServerError)
+		return
 	}
 }
-
-var jwtKey []byte = []byte(os.Getenv("JWT_KEY"))
 
 func Login(w http.ResponseWriter, r *http.Request, db db.DB) {
 	w.Header().Set("Content-Type", "application/json")
@@ -57,35 +52,18 @@ func Login(w http.ResponseWriter, r *http.Request, db db.DB) {
 		http.Error(w, `{"message": "Bad Request"}`, http.StatusBadRequest)
 	}
 
-	bcryptHash, err := db.GetUserPasswordHash(request.Username)
+	resp, err := actions.Login(db, request)
 	if err != nil {
-		http.Error(w, `{"message": "Internal Server Error"}`, http.StatusInternalServerError)
-	}
-	if err = bcrypt.CompareHashAndPassword([]byte(bcryptHash), []byte(request.Password)); err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-	}
-	expirationTime := time.Now().Add(15 * time.Minute)
-	claimsMap := map[string]any{
-		"username": request.Username,
-		"exp":      expirationTime.Unix(),
-		"iat":      time.Now().Unix(),
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims(claimsMap))
-	tokenString, err := token.SignedString(jwtKey)
-	if err != nil {
+		// TODO: create different error types to differentiate response codes
 		http.Error(w, `{"message": "Internal Server Error"}`, http.StatusInternalServerError)
 		return
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name:     "token",
-		Value:    tokenString,
-		Expires:  expirationTime,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		Path:     "/",
-	})
+
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		http.Error(w, `{"message": "Internal Server Error"}`, http.StatusInternalServerError)
+		return
+	}
 }
 
 func SubmitJob(w http.ResponseWriter, r *http.Request, db db.DB, eventBus events.Bus) {
@@ -98,26 +76,8 @@ func SubmitJob(w http.ResponseWriter, r *http.Request, db db.DB, eventBus events
 		return
 	}
 
-	// download the file from the header
-	var payload models.EventPayload
-	switch request.Type {
-	case models.DFTJob:
-		payload = &models.DFTEventPayload{InputFile: request.InputFile}
-	case models.DummyJob:
-		payload = &models.DummyEventPayload{}
-	default:
-		http.Error(w, `{"message": "Bad Request"}`, http.StatusBadRequest)
-		return
-	}
-
-	err := eventBus.Publish(&models.Event{
-		ID:      uuid.New(),
-		Version: 1,
-		JobName: request.JobName,
-		Type:    request.Type,
-		Payload: payload,
-	})
-	if err != nil {
+	if err := actions.SubmitJob(eventBus, request); err != nil {
+		// TODO: handle mapping of different error types to different error http codes
 		http.Error(w, `{"message": "Internal Server Error"}`, http.StatusInternalServerError)
 		return
 	}

@@ -49,12 +49,13 @@ func TestSignUp(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name   string
-		body   string
-		status int
+		name        string
+		body        string
+		status      int
+		expectedKey string
 	}{
-		{"happy path", `{"username":"test","email":"test@test.com","password":"password"}`, http.StatusOK},
-		{"bad request", `{"bad":"body"}`, http.StatusBadRequest},
+		{"happy path", `{"username":"test","email":"test@test.com","password":"password"}`, http.StatusOK, "token"},
+		{"bad request", `{"bad":"body"}`, http.StatusBadRequest, "message"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -68,11 +69,15 @@ func TestSignUp(t *testing.T) {
 				t.Errorf("expected status code to be %d, got %d", test.status, w.Code)
 			}
 			body := decodeResponse(w)
-			if body != nil {
-				if body["message"] != "Bad Request" {
-					t.Errorf("expected error to be 'Bad Request', got %v", body["message"])
-				}
+			value, ok := body[test.expectedKey]
+			if !ok {
+				t.Errorf("Expected key, %s, not present in body, %v", test.expectedKey, body)
+			}
+			if test.expectedKey == "message" && value != "Bad Request" {
+				t.Errorf("expected error to be 'Bad Request', got %v", body["message"])
 			}
 		})
 	}
 }
+
+// TODO: add tests for Login and SubmitJob

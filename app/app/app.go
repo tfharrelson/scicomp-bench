@@ -19,7 +19,9 @@ func CreateApp() http.Handler {
 		log.Fatalf("Failed creating event bus: %v", err)
 	}
 
-	InitHandlers(localDB, bus)
+	apiStore := NewInProcessApiStore(localDB, bus)
+
+	InitHandlers(localDB, bus, apiStore)
 
 	mux.HandleFunc("GET /", Index)
 	mux.HandleFunc("POST /login", Login)
