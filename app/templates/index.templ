@@ -1,20 +1,15 @@
 package templates
 
+import (
+	"github.com/tfharrelson/scicomp-bench/app/components"
+	"github.com/tfharrelson/scicomp-bench/app/layouts"
+)
+
 templ IndexPage() {
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <title>SciComp Bench</title>
-        <link rel="stylesheet" href="/styles.css">
-        <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.7/bundles/datastar.js"></script>
-    </head>
-    <body data-datastar>
-        <div class="container">
-            @LoginForm()
-            @SignupForm()
-            @JobForm()
-        </div>
-    </body>
-    </html>
+	@layouts.Base("SciComp Bench") {
+		@components.Navigation(components.PageIndex)
+		<article class="prose mx-auto m-2">
+			<p>Welcome to the SciComp Bench</p>
+		</article>
+	}
 }

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -43,9 +44,16 @@ func Index(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func RenderLogin(w http.ResponseWriter, r *http.Request) {
+	if err := templates.LoginForm().Render(r.Context(), w); err != nil {
+		http.Error(w, "Couldn't render login page", http.StatusInternalServerError)
+	}
+}
+
 func Login(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
+	fmt.Printf("got login request with username %s, and password %s\n", username, password)
 
 	sse := datastar.NewSSE(w, r)
 	if username == "" || password == "" {
@@ -72,24 +80,27 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func RenderSignup(w http.ResponseWriter, r *http.Request) {
+	if err := templates.SignupForm().Render(r.Context(), w); err != nil {
+		http.Error(w, "Couldn't render login page", http.StatusInternalServerError)
+		return
+	}
+}
+
 func Signup(w http.ResponseWriter, r *http.Request) {
-	username := r.FormValue("username")
-	email := r.FormValue("email")
-	password := r.FormValue("password")
+	var request models.SignUpRequest
+	if err := datastar.ReadSignals(r, &request); err != nil {
+		http.Error(w, "Couldn't read signup request", http.StatusInternalServerError)
+	}
+	fmt.Printf("got signup request with email %s, username %s, and password %s\n", request.Email, request.Username, request.Password)
 
 	sse := datastar.NewSSE(w, r)
-	if username == "" || email == "" || password == "" {
+	if request.Username == "" || request.Email == "" || request.Password == "" {
 		if err := sse.PatchElementTempl(templates.SignUpError("All fields required")); err != nil {
 			http.Error(w, "Couldn't patch signup error message", http.StatusInternalServerError)
 			return
 		}
 		return
-	}
-
-	request := models.SignUpRequest{
-		Username: username,
-		Email:    email,
-		Password: password,
 	}
 
 	resp, err := apiStore.SignUp(request)
@@ -111,7 +122,14 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func RenderJobForm(w http.ResponseWriter, r *http.Request) {
+	if err := templates.JobForm().Render(r.Context(), w); err != nil {
+		http.Error(w, "Couldn't render job form", http.StatusInternalServerError)
+	}
+}
+
 func SubmitJob(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("got submit job request")
 	// TODO: check auth
 	sse := datastar.NewSSE(w, r)
 

@@ -1,30 +1,32 @@
 package templates
 
+import (
+	"github.com/tfharrelson/scicomp-bench/app/components"
+	"github.com/tfharrelson/scicomp-bench/app/layouts"
+	"github.com/tfharrelson/scicomp-bench/pkg/models"
+)
+
 templ SignupForm() {
-    <form data-on:submit="@post('/signup')" class="card">
-        <h1>Sign Up</h1>
-        <div id="signup-error" class="status status-error"></div>
-        <div id="signup-success" class="status status-success"></div>
-        <div class="form-group">
-            <label class="form-label">Username</label>
-            <input name="username" class="form-input" placeholder="Choose username" required>
-        </div>
-        <div class="form-group">
-            <label class="form-label">Email</label>
-            <input name="email" class="form-input" type="email" placeholder="you@example.com" required>
-        </div>
-        <div class="form-group">
-            <label class="form-label">Password</label>
-            <input name="password" class="form-input" type="password" placeholder="Choose password" required>
-        </div>
-        <button class="btn" type="submit">Sign Up</button>
-    </form>
+	@layouts.Base("Sign Up") {
+		@components.Navigation(components.PageSignup)
+		<div data-signals={ templ.JSONString(models.SignUpRequest{}) }>
+			<form>
+				<h1>Sign Up</h1>
+				<div id="signup-error" class="status status-error"></div>
+				<div id="signup-success" class="status status-success"></div>
+				Username:<input name="username" data-bind:username class="form-input" placeholder="Choose username" required/>
+				Email:<input name="email" data-bind:email class="form-input" type="email" placeholder="you@example.com" required/>
+				Password:<input name="password" data-bind:password class="form-input" type="password" placeholder="Choose password" required/>
+				<button data-on:click="@post('/signup', {contentType: 'form'})">Sign Up</button>
+			</form>
+		</div>
+	}
 }
 
 templ SignUpError(message string) {
-  <div id="signup-error" class="status status-error">{ message }</div>
+	<div id="signup-error" class="status status-error">{ message }</div>
 }
 
 templ SignUpToast(message string) {
-  <div id="signup-success" class="status status-success">{ message }</div>
+	<div id="signup-success" class="status status-success">{ message }</div>
 }

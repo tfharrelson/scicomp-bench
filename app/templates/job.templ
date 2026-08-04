@@ -1,42 +1,53 @@
 package templates
 
+import (
+	"github.com/tfharrelson/scicomp-bench/app/components"
+	"github.com/tfharrelson/scicomp-bench/app/layouts"
+)
+
 templ JobForm() {
-    <form data-on:submit="@post('/submit')" class="card">
-        <h1>Submit DFT Job</h1>
-        <div id="job-error" class="status status-error"></div>
-        <div id="job-success" class="status status-success"></div>
-        <div class="form-group">
-            <label class="form-label">Job Name</label>
-            <input name="job_name" class="form-input" placeholder="my-calculation" required>
-        </div>
-        <div class="form-group">
-            <label class="form-label">Job Type</label>
-            <select name="type" class="form-select">
-                <option value="dft">DFT (Density Functional Theory)</option>
-                <option value="dummy">Dummy (Test)</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label class="form-label">Input File</label>
-            <textarea name="input_file" class="form-textarea" rows="12"
-                placeholder="&amp;CONTROL
+	@layouts.Base("Bench") {
+		@components.Navigation(components.PageSubmitJob)
+		<form data-on:submit="@post('/submit')" class="card">
+			<h1>Submit DFT Job</h1>
+			<div id="job-error" class="status status-error"></div>
+			<div id="job-success" class="status status-success"></div>
+			<div class="form-group">
+				<label class="form-label">Job Name</label>
+				<input name="job_name" class="form-input" placeholder="my-calculation" required/>
+			</div>
+			<div class="form-group">
+				<label class="form-label">Job Type</label>
+				<select name="type" class="form-select">
+					<option value="dft">DFT (Density Functional Theory)</option>
+					<option value="dummy">Dummy (Test)</option>
+				</select>
+			</div>
+			<div class="form-group">
+				<label class="form-label">Input File</label>
+				<textarea
+					name="input_file"
+					class="form-textarea"
+					rows="12"
+					placeholder="&amp;CONTROL
     calculation = 'scf'
 /
 &amp;SYSTEM
     ibrav = 1
 /
 &amp;ELECTRONS
-/">
-            </textarea>
-        </div>
-        <button class="btn" type="submit">Submit Job</button>
-    </form>
+/"
+				></textarea>
+			</div>
+			<button class="btn" type="submit">Submit Job</button>
+		</form>
+	}
 }
 
 templ SubmitJobError(message string) {
-  <div id="job-error" class="status status-error">{ message }</div>
+	<div id="job-error" class="status status-error">{ message }</div>
 }
 
 templ SubmitJobToast(message string) {
-  <div id="job-success" class="status status-success">{ message }</div>
+	<div id="job-success" class="status status-success">{ message }</div>
 }

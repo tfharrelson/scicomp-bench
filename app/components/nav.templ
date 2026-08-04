@@ -1,0 +1,21 @@
+package components
+
+type page int
+
+const (
+	PageIndex page = iota
+	PageLogin
+	PageSignup
+	PageSubmitJob
+)
+
+templ Navigation(page page) {
+	<nav class="flex justify-center">
+		<ul class="menu menu-vertical md:menu-horizontal bg-base-200 rounded-box">
+			<li class={ "hover:text-primary", templ.KV("text-primary", page == PageIndex) }><a href="/">Home</a></li>
+			<li class={ "hover:text-primary", templ.KV("text-primary", page == PageLogin) }><a href="/login">Login</a></li>
+			<li class={ "hover:text-primary", templ.KV("text-primary", page == PageSignup) }><a href="/signup">Signup</a></li>
+			<li class={ "hover:text-primary", templ.KV("text-primary", page == PageSubmitJob) }><a href="/submitjob">Bench</a></li>
+		</ul>
+	</nav>
+}

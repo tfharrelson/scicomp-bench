@@ -1,11 +1,10 @@
 package api
 
 import (
+	"fmt"
 	"net/url"
 	"os"
 	"strconv"
-
-	natsserver "github.com/nats-io/nats-server/v2/server"
 )
 
 type Env string
@@ -69,21 +68,15 @@ func newProdConfig() *Config {
 }
 
 func newDevConfig() *Config {
-	opts := natsserver.Options{Port: -1}
-	ns, err := natsserver.NewServer(&opts)
+	natsURL, err := url.Parse("http://localhost:4222")
 	if err != nil {
-		panic(err)
-	}
-
-	natsURL, err := url.Parse(ns.ClientURL())
-	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("failed to parse nats url: %w", err))
 	}
 
 	return &Config{
 		EventBus: EventBusConfig{
 			URL:           natsURL,
-			MaxReconnects: 0,
+			MaxReconnects: 3,
 			WaitTime:      1,
 		},
 		DB: DBConfig{},

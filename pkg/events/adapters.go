@@ -78,6 +78,7 @@ func NewNatsEventBus(
 		URL.String(),
 		nats.MaxReconnects(MaxReconnects),
 		nats.ReconnectWait(waitTime),
+		nats.RetryOnFailedConnect(true),
 		nats.DisconnectHandler(func(_ *nats.Conn) {
 			fmt.Println("Disconnected")
 		}),
