@@ -2,6 +2,7 @@
 package actions
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -47,4 +48,27 @@ func SignUp(db db.DB, request models.SignUpRequest) (*models.AuthResponse, error
 		Password: request.Password,
 	}
 	return Login(db, loginRequest)
+}
+
+type CustomClaims struct {
+	Username string `json:"username"`
+	jwt.RegisteredClaims
+}
+
+// TODO: should this be public?
+func CheckToken(token string) (*CustomClaims, error) {
+	// TODO: obviously fix this
+	// would like to implement a public/private key pair for this
+	tok, err := jwt.ParseWithClaims(token, &CustomClaims{}, func(t *jwt.Token) (any, error) { return jwtKey, nil })
+	if err != nil {
+		return nil, err
+	}
+	claim, ok := tok.Claims.(*CustomClaims)
+	if !ok {
+		panic("claims are incorrectly configured")
+	}
+	if !tok.Valid {
+		return nil, fmt.Errorf("invalid token")
+	}
+	return claim, nil
 }
